@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	"github.com/spf13/hugo/helpers"
+	"github.com/gohugoio/hugo/helpers"
 )
 
 const commitPrefix = "releaser:"
@@ -33,7 +33,7 @@ const commitPrefix = "releaser:"
 type ReleaseHandler struct {
 	patch int
 
-	// If set, we do the relases in 3 steps:
+	// If set, we do the releases in 3 steps:
 	// 1: Create and write a draft release notes
 	// 2: Prepare files for new version.
 	// 3: Release
@@ -128,7 +128,7 @@ func (r *ReleaseHandler) Run() error {
 	}
 
 	if r.shouldPrepareReleasenotes() {
-		releaseNotesFile, err := writeReleaseNotesToDocsTemp(version, gitCommits)
+		releaseNotesFile, err := writeReleaseNotesToTemp(version, gitCommits)
 		if err != nil {
 			return err
 		}
@@ -136,18 +136,38 @@ func (r *ReleaseHandler) Run() error {
 		if _, err := git("add", releaseNotesFile); err != nil {
 			return err
 		}
-		if _, err := git("commit", "-m", fmt.Sprintf("%s Add relase notes draft for release of %s\n\n[ci skip]", commitPrefix, newVersion)); err != nil {
+		if _, err := git("commit", "-m", fmt.Sprintf("%s Add release notes draft for %s\n\n[ci skip]", commitPrefix, newVersion)); err != nil {
 			return err
 		}
 	}
 
 	if r.shouldPrepareVersions() {
+		if newVersion.PatchLevel == 0 {
+			// Make sure the docs submodule is up to date.
+			// TODO(bep) improve this. Maybe it was not such a good idea to do
+			// this in the sobmodule directly.
+			if _, err := git("submodule", "update", "--init"); err != nil {
+				return err
+			}
+			//git submodule update
+			if _, err := git("submodule", "update", "--remote", "--merge"); err != nil {
+				return err
+			}
+
+			// TODO(bep) the above may not have changed anything.
+			if _, err := git("commit", "-a", "-m", fmt.Sprintf("%s Update /docs [ci skip]", commitPrefix)); err != nil {
+				return err
+			}
+		}
+
 		if err := bumpVersions(newVersion); err != nil {
 			return err
 		}
 
-		if _, err := git("commit", "-a", "-m", fmt.Sprintf("%s Bump versions for release of %s\n\n[ci skip]", commitPrefix, newVersion)); err != nil {
-			return err
+		for _, repo := range []string{"docs", "."} {
+			if _, err := git("-C", repo, "commit", "-a", "-m", fmt.Sprintf("%s Bump versions for release of %s\n\n[ci skip]", commitPrefix, newVersion)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -156,7 +176,7 @@ func (r *ReleaseHandler) Run() error {
 		return nil
 	}
 
-	releaseNotesFile := getRelaseNotesDocsTempFilename(version)
+	releaseNotesFile := getReleaseNotesDocsTempFilename(version)
 
 	// Write the release notes to the docs site as well.
 	docFile, err := writeReleaseNotesToDocs(version, releaseNotesFile)
@@ -164,20 +184,39 @@ func (r *ReleaseHandler) Run() error {
 		return err
 	}
 
-	if _, err := git("add", docFile); err != nil {
+	if _, err := git("-C", "docs", "add", docFile); err != nil {
 		return err
 	}
-	if _, err := git("commit", "-m", fmt.Sprintf("%s Add relase notes to /docs for release of %s\n\n[ci skip]", commitPrefix, newVersion)); err != nil {
-		return err
-	}
-
-	if _, err := git("tag", "-a", tag, "-m", fmt.Sprintf("%s %s [ci deploy]", commitPrefix, newVersion)); err != nil {
+	if _, err := git("-C", "docs", "commit", "-m", fmt.Sprintf("%s Add release notes to /docs for release of %s\n\n[ci skip]", commitPrefix, newVersion)); err != nil {
 		return err
 	}
 
-	if _, err := git("push", "origin", tag); err != nil {
-		return err
+	for i, repo := range []string{"docs", "."} {
+		if i == 1 {
+			if _, err := git("add", "docs"); err != nil {
+				return err
+			}
+			if _, err := git("commit", "-m", fmt.Sprintf("%s Update /docs to %s [ci skip]", commitPrefix, newVersion)); err != nil {
+				return err
+			}
+		}
+		if _, err := git("-C", repo, "tag", "-a", tag, "-m", fmt.Sprintf("%s %s [ci deploy]", commitPrefix, newVersion)); err != nil {
+			return err
+		}
+
+		repoURL := "git@github.com:gohugoio/hugo.git"
+		if i == 0 {
+			repoURL = "git@github.com:gohugoio/hugoDocs.git"
+		}
+		if _, err := git("-C", repo, "push", repoURL, "origin/master", tag); err != nil {
+			return err
+		}
 	}
+
+	// We make changes to the submodule, which is in detached state. Reconsider this
+	// to get changes pushed to both.
+	// TODO(bep) git fetch git@github.com:gohugoio/hugoDocs.git -- master
+	// git branch -f master 8c9359b
 
 	if err := r.release(releaseNotesFile); err != nil {
 		return err
@@ -192,8 +231,10 @@ func (r *ReleaseHandler) Run() error {
 		return err
 	}
 
-	if _, err := git("commit", "-a", "-m", fmt.Sprintf("%s Prepare repository for %s\n\n[ci skip]", commitPrefix, finalVersion)); err != nil {
-		return err
+	for _, repo := range []string{"docs", "."} {
+		if _, err := git("-C", repo, "commit", "-a", "-m", fmt.Sprintf("%s Prepare repository for %s\n\n[ci skip]", commitPrefix, finalVersion)); err != nil {
+			return err
+		}
 	}
 
 	return nil

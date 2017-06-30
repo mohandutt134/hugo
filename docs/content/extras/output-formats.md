@@ -28,6 +28,7 @@ This is the full set of built-in media types in Hugo:
 * It is possible to add custom media types or change the defaults (if you, say, want to change the suffix to `asp` for `text/html`).
 * The `Suffix` is the value that will be used for URLs and filenames for that media type in Hugo.
 * The `Type` is the identifier that must be used when defining new `Output Formats` (see below). 
+* The `Delimiter` defaults to ".", but can be changed or even blanked out to support, as an example, Netlify's `_redirect` files.
 * The full set of media types will be registered in Hugo's built-in development server to make sure they are recognized by the browser.
 
 To add or modify a media type, define it in a `mediaTypes` section in your site config (either for all sites or for a given language). 
@@ -171,13 +172,13 @@ Hugo will now also detect the media type and output format of partials, if possi
 
 Hugo will look for the name given, so you can name it whatever you want. But if you want it treated as plain text, you should use the file suffix and, if needed, the name of the Output Format (`[partial name].[OutputFormat].[suffix])`.
 
-The partial below is a plain text template (Outpuf Format is `CSV`, and since this is the only output format with the suffix `csv`, we don't need to include the Output Format's `Name`):
+The partial below is a plain text template (Output Format is `CSV`, and since this is the only output format with the suffix `csv`, we don't need to include the Output Format's `Name`):
 
 ```
 {{ partial "mytextpartial.csv" . }}
 ```
 
-Also note that plain text partials can currently only be included in plain text templates, and vice versa. See [this issue](https://github.com/spf13/hugo/issues/3273) for some background.
+Also note that plain text partials can currently only be included in plain text templates, and vice versa. See [this issue](https://github.com/gohugoio/hugo/issues/3273) for some background.
 
 
 

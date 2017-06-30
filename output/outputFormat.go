@@ -23,7 +23,7 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 
-	"github.com/spf13/hugo/media"
+	"github.com/gohugoio/hugo/media"
 )
 
 // Format represents an output representation, usually to a file on disk.
@@ -219,7 +219,12 @@ func (formats Formats) FromFilename(filename string) (f Format, found bool) {
 	}
 
 	if ext != "" {
-		return formats.GetBySuffix(ext)
+		f, found = formats.GetBySuffix(ext)
+		if !found && len(parts) == 2 {
+			// For extensionless output formats (e.g. Netlify's _redirects)
+			// we must fall back to using the extension as format lookup.
+			f, found = formats.GetByName(ext)
+		}
 	}
 	return
 }

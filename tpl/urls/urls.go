@@ -17,8 +17,8 @@ import (
 	"errors"
 	"html/template"
 
+	"github.com/gohugoio/hugo/deps"
 	"github.com/spf13/cast"
-	"github.com/spf13/hugo/deps"
 )
 
 // New returns a new instance of the urls-namespaced template functions.

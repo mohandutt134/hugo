@@ -18,19 +18,32 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gohugoio/hugo/media"
+
 	"fmt"
 
-	"github.com/spf13/hugo/output"
+	"github.com/gohugoio/hugo/output"
 )
 
 func TestPageTargetPath(t *testing.T) {
 
 	pathSpec := newTestDefaultPathSpec()
 
+	noExtNoDelimMediaType := media.TextType
+	noExtNoDelimMediaType.Suffix = ""
+	noExtNoDelimMediaType.Delimiter = ""
+
+	// Netlify style _redirects
+	noExtDelimFormat := output.Format{
+		Name:      "NER",
+		MediaType: noExtNoDelimMediaType,
+		BaseName:  "_redirects",
+	}
+
 	for _, langPrefix := range []string{"", "no"} {
-		t.Run(fmt.Sprintf("langPrefix=%q", langPrefix), func(t *testing.T) {
-			for _, uglyURLs := range []bool{false, true} {
-				t.Run(fmt.Sprintf("uglyURLs=%t", uglyURLs), func(t *testing.T) {
+		for _, uglyURLs := range []bool{false, true} {
+			t.Run(fmt.Sprintf("langPrefix=%q,uglyURLs=%t", langPrefix, uglyURLs),
+				func(t *testing.T) {
 
 					tests := []struct {
 						name     string
@@ -40,6 +53,7 @@ func TestPageTargetPath(t *testing.T) {
 						{"JSON home", targetPathDescriptor{Kind: KindHome, Type: output.JSONFormat}, "/index.json"},
 						{"AMP home", targetPathDescriptor{Kind: KindHome, Type: output.AMPFormat}, "/amp/index.html"},
 						{"HTML home", targetPathDescriptor{Kind: KindHome, BaseName: "_index", Type: output.HTMLFormat}, "/index.html"},
+						{"Netlify redirects", targetPathDescriptor{Kind: KindHome, BaseName: "_index", Type: noExtDelimFormat}, "/_redirects"},
 						{"HTML section list", targetPathDescriptor{
 							Kind:     KindSection,
 							Sections: []string{"sect1"},
@@ -171,8 +185,6 @@ func TestPageTargetPath(t *testing.T) {
 						}
 					}
 				})
-			}
-		})
+		}
 	}
-
 }

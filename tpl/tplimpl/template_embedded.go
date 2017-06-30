@@ -166,16 +166,21 @@ func (t *templateHandler) embedTemplates() {
 {{ end }}`)
 
 	t.addInternalTemplate("", "disqus.html", `{{ if .Site.DisqusShortname }}<div id="disqus_thread"></div>
-<script type="text/javascript">
-    var disqus_shortname = '{{ .Site.DisqusShortname }}';
-    var disqus_identifier = '{{with .GetParam "disqus_identifier" }}{{ . }}{{ else }}{{ .Permalink }}{{end}}';
-    var disqus_title = '{{with .GetParam "disqus_title" }}{{ . }}{{ else }}{{ .Title }}{{end}}';
-    var disqus_url = '{{with .GetParam "disqus_url" }}{{ . | html  }}{{ else }}{{ .Permalink }}{{end}}';
-
+<script>
+    var disqus_config = function () {
+    {{with .GetParam "disqus_identifier" }}this.page.identifier = '{{ . }}';{{end}}
+    {{with .GetParam "disqus_title" }}this.page.title = '{{ . }}';{{end}}
+    {{with .GetParam "disqus_url" }}this.page.url = '{{ . | html  }}';{{end}}
+    };
     (function() {
-        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
-        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + {{ .Site.DisqusShortname }} + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
     })();
 </script>
 <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
@@ -261,7 +266,7 @@ func (t *templateHandler) embedTemplates() {
 {{ end }}{{ end }}
 
 <!-- Output all taxonomies as schema.org keywords -->
-<meta itemprop="keywords" content="{{ range $plural, $terms := .Site.Taxonomies }}{{ range $term, $val := $terms }}{{ printf "%s," $term }}{{ end }}{{ end }}" />
+<meta itemprop="keywords" content="{{ if .IsPage}}{{ range $index, $tag := .Params.tags }}{{ $tag }},{{ end }}{{ else }}{{ range $plural, $terms := .Site.Taxonomies }}{{ range $term, $val := $terms }}{{ printf "%s," $term }}{{ end }}{{ end }}{{ end }}" />
 {{ end }}`)
 
 	t.addInternalTemplate("", "google_analytics.html", `{{ with .Site.GoogleAnalytics }}

@@ -20,8 +20,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/output"
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/output"
 )
 
 // targetPathDescriptor describes how a file path for a given resource
@@ -85,7 +85,7 @@ func (p *Page) initTargetPathDescriptor() error {
 		Kind:     p.Kind,
 		Sections: p.sections,
 		UglyURLs: p.s.Info.uglyURLs,
-		Dir:      filepath.ToSlash(strings.ToLower(p.Source.Dir())),
+		Dir:      filepath.ToSlash(p.Source.Dir()),
 		URL:      p.URLPath.URL,
 	}
 
@@ -164,7 +164,7 @@ func createTargetPath(d targetPathDescriptor) string {
 		if d.URL != "" {
 			pagePath = filepath.Join(pagePath, d.URL)
 			if strings.HasSuffix(d.URL, "/") || !strings.Contains(d.URL, ".") {
-				pagePath = filepath.Join(pagePath, d.Type.BaseName+"."+d.Type.MediaType.Suffix)
+				pagePath = filepath.Join(pagePath, d.Type.BaseName+d.Type.MediaType.FullSuffix())
 			}
 		} else {
 			if d.ExpandedPermalink != "" {
@@ -184,9 +184,9 @@ func createTargetPath(d targetPathDescriptor) string {
 			}
 
 			if isUgly {
-				pagePath += "." + d.Type.MediaType.Suffix
+				pagePath += d.Type.MediaType.Delimiter + d.Type.MediaType.Suffix
 			} else {
-				pagePath = filepath.Join(pagePath, d.Type.BaseName+"."+d.Type.MediaType.Suffix)
+				pagePath = filepath.Join(pagePath, d.Type.BaseName+d.Type.MediaType.FullSuffix())
 			}
 
 			if d.LangPrefix != "" {
@@ -207,7 +207,7 @@ func createTargetPath(d targetPathDescriptor) string {
 			base = helpers.FilePathSeparator + d.Type.BaseName
 		}
 
-		pagePath += base + "." + d.Type.MediaType.Suffix
+		pagePath += base + d.Type.MediaType.FullSuffix()
 
 		if d.LangPrefix != "" {
 			pagePath = filepath.Join(d.LangPrefix, pagePath)

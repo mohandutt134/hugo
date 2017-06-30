@@ -21,8 +21,8 @@ import (
 
 	"log"
 
+	"github.com/gohugoio/hugo/config"
 	"github.com/nicksnyder/go-i18n/i18n/bundle"
-	"github.com/spf13/hugo/config"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -113,7 +113,7 @@ var i18nTests = []i18nTest{
 		expectedFlag: "¡Hola, 50 gente!",
 	},
 	// Same id and translation in current language
-	// https://github.com/spf13/hugo/issues/2607
+	// https://github.com/gohugoio/hugo/issues/2607
 	{
 		data: map[string][]byte{
 			"es.toml": []byte("[hello]\nother = \"hello\""),

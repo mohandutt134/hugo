@@ -12,7 +12,7 @@ weight: 10
 
 ## Discussion Forum
 
-Hugo has its own [discussion forum](http://discuss.gohugo.io/) powered by [Discourse](http://www.discourse.org/).
+Hugo has its own [discussion forum](https://discourse.gohugo.io/) powered by [Discourse](http://www.discourse.org/).
 
 Please use this for all discussions, questions, etc.
 
@@ -31,7 +31,7 @@ https://groups.google.com/forum/#!forum/hugo-announce
 
 ### Discussion (Archive)
 
-**This has been replaced with the [Hugo discussion forum](http://discuss.gohugo.io/).**
+**This has been replaced with the [Hugo discussion forum](https://discourse.gohugo.io/).**
 
 It is available for archival purposes.
 
@@ -48,4 +48,4 @@ https://groups.google.com/forum/#!forum/golang-nuts
 
 ### GitHub Issues
 
-https://github.com/spf13/hugo/issues
+https://github.com/gohugoio/hugo/issues

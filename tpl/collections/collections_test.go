@@ -25,10 +25,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/hugo/config"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/hugofs"
+	"github.com/gohugoio/hugo/config"
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/hugofs"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -298,6 +298,7 @@ func TestIntersect(t *testing.T) {
 		{[]interface{}{int16(1), int16(2), int16(3)}, []int16{1, 2, 2}, []interface{}{int16(1), int16(2)}},
 		{[]interface{}{int32(1), int32(2), int32(3)}, []int32{1, 2, 2}, []interface{}{int32(1), int32(2)}},
 		{[]interface{}{int64(1), int64(2), int64(3)}, []int64{1, 2, 2}, []interface{}{int64(1), int64(2)}},
+		{[]interface{}{uint(1), uint(2), uint(3)}, []uint{1, 2, 2}, []interface{}{uint(1), uint(2)}},
 		{[]interface{}{float32(1), float32(2), float32(3)}, []float32{1, 2, 2}, []interface{}{float32(1), float32(2)}},
 		{[]interface{}{float64(1), float64(2), float64(3)}, []float64{1, 2, 2}, []interface{}{float64(1), float64(2)}},
 
@@ -571,21 +572,46 @@ func TestUnion(t *testing.T) {
 		expect interface{}
 		isErr  bool
 	}{
+		{nil, nil, []interface{}{}, false},
+		{nil, []string{"a", "b"}, []string{"a", "b"}, false},
+		{[]string{"a", "b"}, nil, []string{"a", "b"}, false},
+
+		// []A ∪ []B
+		{[]string{"1", "2"}, []int{3}, []string{}, false},
+		{[]int{1, 2}, []string{"1", "2"}, []int{}, false},
+
+		// []T ∪ []T
 		{[]string{"a", "b", "c", "c"}, []string{"a", "b", "b"}, []string{"a", "b", "c"}, false},
 		{[]string{"a", "b"}, []string{"a", "b", "c"}, []string{"a", "b", "c"}, false},
 		{[]string{"a", "b", "c"}, []string{"d", "e"}, []string{"a", "b", "c", "d", "e"}, false},
 		{[]string{}, []string{}, []string{}, false},
-		{[]string{"a", "b"}, nil, []string{"a", "b"}, false},
-		{nil, []string{"a", "b"}, []string{"a", "b"}, false},
-		{nil, nil, make([]interface{}, 0), true},
-		{[]string{"1", "2"}, []int{1, 2}, make([]string, 0), false},
-		{[]int{1, 2}, []string{"1", "2"}, make([]int, 0), false},
 		{[]int{1, 2, 3}, []int{3, 4, 5}, []int{1, 2, 3, 4, 5}, false},
 		{[]int{1, 2, 3}, []int{1, 2, 3}, []int{1, 2, 3}, false},
 		{[]int{1, 2, 4}, []int{2, 4}, []int{1, 2, 4}, false},
 		{[]int{2, 4}, []int{1, 2, 4}, []int{2, 4, 1}, false},
 		{[]int{1, 2, 4}, []int{3, 6}, []int{1, 2, 4, 3, 6}, false},
 		{[]float64{2.2, 4.4}, []float64{1.1, 2.2, 4.4}, []float64{2.2, 4.4, 1.1}, false},
+		{[]interface{}{"a", "b", "c", "c"}, []interface{}{"a", "b", "b"}, []interface{}{"a", "b", "c"}, false},
+
+		// []T ∪ []interface{}
+		{[]string{"1", "2"}, []interface{}{"9"}, []string{"1", "2", "9"}, false},
+		{[]int{2, 4}, []interface{}{1, 2, 4}, []int{2, 4, 1}, false},
+		{[]int8{2, 4}, []interface{}{int8(1), int8(2), int8(4)}, []int8{2, 4, 1}, false},
+		{[]int8{2, 4}, []interface{}{1, 2, 4}, []int8{2, 4, 1}, false},
+		{[]int16{2, 4}, []interface{}{1, 2, 4}, []int16{2, 4, 1}, false},
+		{[]int32{2, 4}, []interface{}{1, 2, 4}, []int32{2, 4, 1}, false},
+		{[]int64{2, 4}, []interface{}{1, 2, 4}, []int64{2, 4, 1}, false},
+		{[]float64{2.2, 4.4}, []interface{}{1.1, 2.2, 4.4}, []float64{2.2, 4.4, 1.1}, false},
+		{[]float32{2.2, 4.4}, []interface{}{1.1, 2.2, 4.4}, []float32{2.2, 4.4, 1.1}, false},
+
+		// []interface{} ∪ []T
+		{[]interface{}{"a", "b", "c", "c"}, []string{"a", "b", "d"}, []interface{}{"a", "b", "c", "d"}, false},
+		{[]interface{}{}, []string{}, []interface{}{}, false},
+		{[]interface{}{1, 2}, []int{2, 3}, []interface{}{1, 2, 3}, false},
+		{[]interface{}{1, 2}, []int8{2, 3}, []interface{}{1, 2, int8(3)}, false},
+		{[]interface{}{uint(1), uint(2)}, []uint{2, 3}, []interface{}{uint(1), uint(2), uint(3)}, false},
+		{[]interface{}{1.1, 2.2}, []float64{2.2, 3.3}, []interface{}{1.1, 2.2, 3.3}, false},
+
 		// errors
 		{"not array or slice", []string{"a"}, false, true},
 		{[]string{"a"}, "not array or slice", false, true},
@@ -593,6 +619,42 @@ func TestUnion(t *testing.T) {
 		errMsg := fmt.Sprintf("[%d] %v", i, test)
 
 		result, err := ns.Union(test.l1, test.l2)
+		if test.isErr {
+			assert.Error(t, err, errMsg)
+			continue
+		}
+
+		assert.NoError(t, err, errMsg)
+		assert.Equal(t, test.expect, result, errMsg)
+	}
+}
+
+func TestUniq(t *testing.T) {
+	t.Parallel()
+
+	ns := New(&deps.Deps{})
+	for i, test := range []struct {
+		l      interface{}
+		expect interface{}
+		isErr  bool
+	}{
+		{[]string{"a", "b", "c"}, []string{"a", "b", "c"}, false},
+		{[]string{"a", "b", "c", "c"}, []string{"a", "b", "c"}, false},
+		{[]string{"a", "b", "b", "c"}, []string{"a", "b", "c"}, false},
+		{[]string{"a", "b", "c", "b"}, []string{"a", "b", "c"}, false},
+		{[]int{1, 2, 3}, []int{1, 2, 3}, false},
+		{[]int{1, 2, 3, 3}, []int{1, 2, 3}, false},
+		{[]int{1, 2, 2, 3}, []int{1, 2, 3}, false},
+		{[]int{1, 2, 3, 2}, []int{1, 2, 3}, false},
+		{[4]int{1, 2, 3, 2}, []int{1, 2, 3}, false},
+		{nil, make([]interface{}, 0), false},
+		// should-errors
+		{1, 1, true},
+		{"foo", "fo", true},
+	} {
+		errMsg := fmt.Sprintf("[%d] %v", i, test)
+
+		result, err := ns.Uniq(test.l)
 		if test.isErr {
 			assert.Error(t, err, errMsg)
 			continue

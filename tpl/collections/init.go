@@ -14,8 +14,8 @@
 package collections
 
 import (
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/tpl/internal"
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/tpl/internal"
 )
 
 const name = "collections"
@@ -135,6 +135,12 @@ func init() {
 			[]string{"seq"},
 			[][2]string{
 				{`{{ seq 3 }}`, `[1 2 3]`},
+			},
+		)
+		ns.AddMethodMapping(ctx.Uniq,
+			[]string{"uniq"},
+			[][2]string{
+				{`{{ slice 1 2 3 2 | uniq }}`, `[1 2 3]`},
 			},
 		)
 

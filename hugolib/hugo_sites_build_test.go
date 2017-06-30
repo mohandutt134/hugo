@@ -9,14 +9,15 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/fortytw2/leaktest"
 	"github.com/fsnotify/fsnotify"
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/hugofs"
+	"github.com/gohugoio/hugo/source"
 	"github.com/spf13/afero"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/hugofs"
-	"github.com/spf13/hugo/source"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
@@ -222,6 +223,12 @@ func doTestMultiSitesBuild(t *testing.T, configTemplate, configSuffix string) {
 		require.NotNil(t, s.disabledKinds)
 	}
 
+	gp1 := sites.GetContentPage(filepath.FromSlash("content/sect/doc1.en.md"))
+	require.NotNil(t, gp1)
+	require.Equal(t, "doc1", gp1.Title)
+	gp2 := sites.GetContentPage(filepath.FromSlash("content/sect/notfound.md"))
+	require.Nil(t, gp2)
+
 	enSite := sites.Sites[0]
 	enSiteHome := enSite.getPage(KindHome)
 	require.True(t, enSiteHome.IsTranslated())
@@ -391,8 +398,10 @@ func doTestMultiSitesBuild(t *testing.T, configTemplate, configSuffix string) {
 
 func TestMultiSitesRebuild(t *testing.T) {
 	// t.Parallel() not supported, see https://github.com/fortytw2/leaktest/issues/4
-	defer leaktest.Check(t)()
-
+	// This leaktest seems to be a little bit shaky on Travis.
+	if !isCI() {
+		defer leaktest.CheckTimeout(t, 30*time.Second)()
+	}
 	siteConfig := testSiteConfig{Fs: afero.NewMemMapFs(), DefaultContentLanguage: "fr", DefaultContentLanguageInSubdir: true}
 	sites := createMultiTestSites(t, siteConfig, multiSiteTOMLConfigTemplate)
 	fs := sites.Fs

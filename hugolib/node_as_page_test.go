@@ -23,15 +23,15 @@ import (
 
 	"github.com/spf13/afero"
 
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/hugofs"
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/hugofs"
 	"github.com/stretchr/testify/require"
 )
 
 /*
 	This file will test the "making everything a page" transition.
 
-	See https://github.com/spf13/hugo/issues/2297
+	See https://github.com/gohugoio/hugo/issues/2297
 
 */
 

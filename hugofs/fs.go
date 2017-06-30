@@ -15,8 +15,8 @@
 package hugofs
 
 import (
+	"github.com/gohugoio/hugo/config"
 	"github.com/spf13/afero"
-	"github.com/spf13/hugo/config"
 )
 
 // Os points to an Os Afero file system.
@@ -26,7 +26,7 @@ type Fs struct {
 	// Source is Hugo's source file system.
 	Source afero.Fs
 
-	// Destination is Hugo's destionation file system.
+	// Destination is Hugo's destination file system.
 	Destination afero.Fs
 
 	// Os is an OS file system.

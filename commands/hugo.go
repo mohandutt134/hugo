@@ -19,33 +19,34 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/spf13/hugo/hugofs"
+	"github.com/gohugoio/hugo/hugofs"
 
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/spf13/hugo/config"
+	"github.com/gohugoio/hugo/config"
 
-	"github.com/spf13/hugo/parser"
+	"github.com/gohugoio/hugo/parser"
 	flag "github.com/spf13/pflag"
 
 	"regexp"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/hugolib"
+	"github.com/gohugoio/hugo/livereload"
+	"github.com/gohugoio/hugo/utils"
+	"github.com/gohugoio/hugo/watcher"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/fsync"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/hugolib"
-	"github.com/spf13/hugo/livereload"
-	"github.com/spf13/hugo/utils"
-	"github.com/spf13/hugo/watcher"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/nitro"
 	"github.com/spf13/viper"
@@ -655,7 +656,7 @@ func (c *commandeer) getDirList() []string {
 		}
 
 		// Skip .git directories.
-		// Related to https://github.com/spf13/hugo/issues/3468.
+		// Related to https://github.com/gohugoio/hugo/issues/3468.
 		if fi.Name() == ".git" {
 			return nil
 		}
@@ -758,6 +759,10 @@ func (c *commandeer) rebuildSites(events []fsnotify.Event) error {
 
 // newWatcher creates a new watcher to watch filesystem events.
 func (c *commandeer) newWatcher(port int) error {
+	if runtime.GOOS == "darwin" {
+		tweakLimit()
+	}
+
 	watcher, err := watcher.New(1 * time.Second)
 	var wg sync.WaitGroup
 
@@ -829,6 +834,11 @@ func (c *commandeer) newWatcher(port int) error {
 							if err := watcher.Add(path); err != nil {
 								return err
 							}
+						} else if !c.isStatic(path) {
+							// Hugo's rebuilding logic is entirely file based. When you drop a new folder into
+							// /content on OSX, the above logic will handle future watching of those files,
+							// but the initial CREATE is lost.
+							dynamicEvents = append(dynamicEvents, fsnotify.Event{Name: path, Op: fsnotify.Create})
 						}
 						return nil
 					}
@@ -841,9 +851,7 @@ func (c *commandeer) newWatcher(port int) error {
 						}
 					}
 
-					isstatic := strings.HasPrefix(ev.Name, c.PathSpec().GetStaticDirPath()) || (len(c.PathSpec().GetThemesDirPath()) > 0 && strings.HasPrefix(ev.Name, c.PathSpec().GetThemesDirPath()))
-
-					if isstatic {
+					if c.isStatic(ev.Name) {
 						staticEvents = append(staticEvents, ev)
 					} else {
 						dynamicEvents = append(dynamicEvents, ev)
@@ -973,8 +981,28 @@ func (c *commandeer) newWatcher(port int) error {
 					}
 
 					if !buildWatch && !c.Cfg.GetBool("disableLiveReload") {
-						// Will block forever trying to write to a channel that nobody is reading if livereload isn't initialized
-						livereload.ForceRefresh()
+
+						navigate := c.Cfg.GetBool("navigateToChanged")
+
+						var p *hugolib.Page
+
+						if navigate {
+
+							// It is probably more confusing than useful
+							// to navigate to a new URL on RENAME etc.
+							// so for now we use the WRITE event only.
+							name := pickOneWritePath(dynamicEvents)
+
+							if name != "" {
+								p = Hugo.GetContentPage(name)
+							}
+						}
+
+						if p != nil {
+							livereload.NavigateToPath(p.RelPermalink())
+						} else {
+							livereload.ForceRefresh()
+						}
 					}
 				}
 			case err := <-watcher.Errors:
@@ -997,6 +1025,22 @@ func (c *commandeer) newWatcher(port int) error {
 
 	wg.Wait()
 	return nil
+}
+
+func pickOneWritePath(events []fsnotify.Event) string {
+	name := ""
+
+	for _, ev := range events {
+		if ev.Op&fsnotify.Write == fsnotify.Write && len(ev.Name) > len(name) {
+			name = ev.Name
+		}
+	}
+
+	return name
+}
+
+func (c *commandeer) isStatic(path string) bool {
+	return strings.HasPrefix(path, c.PathSpec().GetStaticDirPath()) || (len(c.PathSpec().GetThemesDirPath()) > 0 && strings.HasPrefix(path, c.PathSpec().GetThemesDirPath()))
 }
 
 // isThemeVsHugoVersionMismatch returns whether the current Hugo version is

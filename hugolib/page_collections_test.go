@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/hugo/deps"
+	"github.com/gohugoio/hugo/deps"
 	"github.com/stretchr/testify/require"
 )
 
@@ -136,14 +136,5 @@ func TestGetPage(t *testing.T) {
 		assert.Equal(test.kind, page.Kind)
 		assert.Equal(test.expectedTitle, page.Title)
 	}
-
-	// TODO(bep) getPage:
-
-	// From RelRef:
-
-	// refPath := filepath.FromSlash(refURL.Path)
-	// if page.Source.Path() == refPath || page.Source.LogicalName() == refPath {
-	// We should consolidate and make that relref use GetPage.
-	// But note the AllRegularPages!
 
 }

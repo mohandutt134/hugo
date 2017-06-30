@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	issueLinkTemplate            = "[#%d](https://github.com/spf13/hugo/issues/%d)"
+	issueLinkTemplate            = "[#%d](https://github.com/gohugoio/hugo/issues/%d)"
 	linkTemplate                 = "[%s](%s)"
 	releaseNotesMarkdownTemplate = `
 {{- $patchRelease := isPatch . -}}
@@ -39,7 +39,7 @@ const (
 {{ if eq (len .All) 1 }}
 This is a bug-fix release with one important fix.
 {{ else }}
-This is a bug-fix relase with a couple of important fixes.
+This is a bug-fix release with a couple of important fixes.
 {{ end }}
 {{ else }}
 This release represents **{{ len .All }} contributions by {{ len $contribsPerAuthor }} contributors** to the main Hugo code base.
@@ -56,8 +56,8 @@ And as always a big thanks to [@digitalcraftsman](https://github.com/digitalcraf
 Hugo now has:
 
 {{ with .Repo -}}
-* {{ .Stars }}+ [stars](https://github.com/spf13/hugo/stargazers)
-* {{ len .Contributors }}+ [contributors](https://github.com/spf13/hugo/graphs/contributors)
+* {{ .Stars }}+ [stars](https://github.com/gohugoio/hugo/stargazers)
+* {{ len .Contributors }}+ [contributors](https://github.com/gohugoio/hugo/graphs/contributors)
 {{- end -}}
 {{ with .ThemeCount }}
 * 156+ [themes](http://themes.gohugo.io/)
@@ -103,9 +103,9 @@ Hugo now has:
 {{ define "change-section" }}
 {{ range . }}
 {{- if .GitHubCommit -}}
-* {{ .Subject }} {{ . | commitURL }} {{ . | authorURL }} {{ range .Issues }}{{ . | issue }} {{ end }}
+* {{ .Subject }} {{ . | commitURL }} {{ . | authorURL }} {{ range .Issues }}{{ . | issue }}{{ end }}
 {{ else -}}
-* {{ .Subject }} {{ range .Issues }}{{ . | issue }} {{ end }}
+* {{ .Subject }} {{ range .Issues }}{{ . | issue }}{{ end }}
 {{ end -}}
 {{- end }}
 {{ end }}
@@ -160,7 +160,7 @@ func writeReleaseNotes(version string, infos gitInfos, to io.Writer) error {
 }
 
 func fetchThemeCount() (int, error) {
-	resp, err := http.Get("https://github.com/spf13/hugoThemes/blob/master/.gitmodules")
+	resp, err := http.Get("https://raw.githubusercontent.com/gohugoio/hugoThemes/master/.gitmodules")
 	if err != nil {
 		return 0, err
 	}
@@ -185,16 +185,16 @@ func writeReleaseNotesToTmpFile(version string, infos gitInfos) (string, error) 
 	return f.Name(), nil
 }
 
-func getRelaseNotesDocsTempDirAndName(version string) (string, string) {
-	return hugoFilepath("docs/temp"), fmt.Sprintf("%s-relnotes.md", version)
+func getReleaseNotesDocsTempDirAndName(version string) (string, string) {
+	return hugoFilepath("temp"), fmt.Sprintf("%s-relnotes.md", version)
 }
 
-func getRelaseNotesDocsTempFilename(version string) string {
-	return filepath.Join(getRelaseNotesDocsTempDirAndName(version))
+func getReleaseNotesDocsTempFilename(version string) string {
+	return filepath.Join(getReleaseNotesDocsTempDirAndName(version))
 }
 
-func writeReleaseNotesToDocsTemp(version string, infos gitInfos) (string, error) {
-	docsTempPath, name := getRelaseNotesDocsTempDirAndName(version)
+func writeReleaseNotesToTemp(version string, infos gitInfos) (string, error) {
+	docsTempPath, name := getReleaseNotesDocsTempDirAndName(version)
 	os.Mkdir(docsTempPath, os.ModePerm)
 
 	f, err := os.Create(filepath.Join(docsTempPath, name))

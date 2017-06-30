@@ -25,13 +25,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/hugofs"
+	"github.com/gohugoio/hugo/hugolib"
+	"github.com/gohugoio/hugo/parser"
 	"github.com/spf13/afero"
 	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/hugofs"
-	"github.com/spf13/hugo/hugolib"
-	"github.com/spf13/hugo/parser"
 	jww "github.com/spf13/jwalterweatherman"
 )
 

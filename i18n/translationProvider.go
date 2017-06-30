@@ -16,9 +16,9 @@ package i18n
 import (
 	"fmt"
 
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/source"
 	"github.com/nicksnyder/go-i18n/i18n/bundle"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/source"
 )
 
 // TranslationProvider provides translation handling, i.e. loading

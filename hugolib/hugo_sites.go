@@ -19,12 +19,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
+	"path/filepath"
 
-	"github.com/spf13/hugo/i18n"
-	"github.com/spf13/hugo/tpl"
-	"github.com/spf13/hugo/tpl/tplimpl"
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
+
+	"github.com/gohugoio/hugo/i18n"
+	"github.com/gohugoio/hugo/tpl"
+	"github.com/gohugoio/hugo/tpl/tplimpl"
 )
 
 // HugoSites represents the sites to build. Each site represents a language.
@@ -36,6 +38,27 @@ type HugoSites struct {
 	multilingual *Multilingual
 
 	*deps.Deps
+}
+
+// GetContentPage finds a Page with content given the absolute filename.
+// Returns nil if none found.
+func (h *HugoSites) GetContentPage(filename string) *Page {
+	s := h.Sites[0]
+	contendDir := filepath.Join(s.PathSpec.AbsPathify(s.Cfg.GetString("contentDir")))
+	if !strings.HasPrefix(filename, contendDir) {
+		return nil
+	}
+
+	rel := strings.TrimPrefix(filename, contendDir)
+	rel = strings.TrimPrefix(rel, helpers.FilePathSeparator)
+
+	pos := s.rawAllPages.findPagePosByFilePath(rel)
+
+	if pos == -1 {
+		return nil
+	}
+	return s.rawAllPages[pos]
+
 }
 
 // NewHugoSites creates a new collection of sites given the input sites, building
@@ -269,6 +292,18 @@ func (h *HugoSites) renderCrossSitesArtifacts() error {
 		return nil
 	}
 
+	sitemapEnabled := false
+	for _, s := range h.Sites {
+		if s.isEnabled(kindSitemap) {
+			sitemapEnabled = true
+			break
+		}
+	}
+
+	if !sitemapEnabled {
+		return nil
+	}
+
 	// TODO(bep) DRY
 	sitemapDefault := parseSitemap(h.Cfg.GetStringMap("sitemap"))
 
@@ -325,6 +360,11 @@ func (h *HugoSites) createMissingPages() error {
 			}
 		}
 
+		// Will create content-less root sections.
+		newSections := s.assembleSections()
+		s.Pages = append(s.Pages, newSections...)
+		newPages = append(newPages, newSections...)
+
 		// taxonomy list and terms pages
 		taxonomies := s.Language.GetStringMapString("taxonomies")
 		if len(taxonomies) > 0 {
@@ -368,33 +408,6 @@ func (h *HugoSites) createMissingPages() error {
 							s.Pages = append(s.Pages, n)
 							newPages = append(newPages, n)
 						}
-					}
-				}
-			}
-		}
-
-		if s.isEnabled(KindSection) {
-			sectionPages := s.findPagesByKind(KindSection)
-			if len(sectionPages) < len(s.Sections) {
-				for name, section := range s.Sections {
-					// A section may be created for the root content folder if a
-					// content file is placed there.
-					// We cannot create a section node for that, because
-					// that would overwrite the home page.
-					if name == "" {
-						continue
-					}
-					foundSection := false
-					for _, sectionPage := range sectionPages {
-						if sectionPage.sections[0] == name {
-							foundSection = true
-							break
-						}
-					}
-					if !foundSection {
-						n := s.newSectionPage(name, section)
-						s.Pages = append(s.Pages, n)
-						newPages = append(newPages, n)
 					}
 				}
 			}

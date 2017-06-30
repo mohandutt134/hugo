@@ -215,7 +215,7 @@ func (p *PathSpec) getThemeDirPath(path string) (string, error) {
 	}
 
 	themeDir := filepath.Join(p.GetThemeDir(), path)
-	if _, err := p.fs.Source.Stat(themeDir); os.IsNotExist(err) {
+	if _, err := p.Fs.Source.Stat(themeDir); os.IsNotExist(err) {
 		return "", fmt.Errorf("Unable to find %s directory for theme %s in %s", path, p.theme, themeDir)
 	}
 
@@ -285,6 +285,12 @@ func GetDottedRelativePath(inPath string) string {
 	}
 
 	return dottedPath
+}
+
+// Ext takes a path and returns the extension, including the delmiter, i.e. ".md".
+func Ext(in string) string {
+	_, ext := fileAndExt(in, fpb)
+	return ext
 }
 
 // Filename takes a path, strips out the extension,

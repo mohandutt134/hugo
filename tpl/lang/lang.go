@@ -19,8 +19,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gohugoio/hugo/deps"
 	"github.com/spf13/cast"
-	"github.com/spf13/hugo/deps"
 )
 
 // New returns a new instance of the lang-namespaced template functions.

@@ -15,7 +15,7 @@ weight: 20
 
 Hugo is written in [Go][] with support for multiple platforms.
 
-The latest release can be found at [Hugo Releases](https://github.com/spf13/hugo/releases).
+The latest release can be found at [Hugo Releases](https://github.com/gohugoio/hugo/releases).
 We currently provide pre-built binaries for
 <i class="fa fa-windows"></i>&nbsp;Windows,
 <i class="fa fa-linux"></i>&nbsp;Linux,
@@ -28,7 +28,7 @@ Hugo may also be compiled from source wherever the Go compiler tool chain can ru
 ## Installing Hugo (binary)
 
 Installation is very easy. Simply download the appropriate version for your
-platform from [Hugo Releases](https://github.com/spf13/hugo/releases).
+platform from [Hugo Releases](https://github.com/gohugoio/hugo/releases).
 Once downloaded it can be run from anywhere. You don't need to install
 it into a global location. This works well for shared hosts and other systems
 where you don't have a privileged account.
@@ -55,6 +55,9 @@ you need to install the Python-based Pygments program. The procedure is outlined
 
 Upgrading Hugo is as easy as downloading and replacing the executable you’ve
 placed in your `PATH`.
+
+On macOS, if you have [Homebrew](http://brew.sh/), upgrading is even
+easier: just run `brew upgrade hugo`.
 
 ## Installing Hugo on Linux from native packages
 
@@ -83,21 +86,27 @@ Cons:
 * Might not be the latest version, especially if you are using an older stable version (e.g., Ubuntu 16.04&nbsp;LTS).
   Until backports and PPA are available, you may consider installing the Hugo snap package to get the latest version of Hugo, as described below.
 
-### Fedora and Red Hat
+### Fedora, CentOS and Red Hat
 
+* https://copr.fedorainfracloud.org/coprs/daftaupe/hugo/ : updated as soon as possible after the official Hugo release.
 * https://copr.fedorainfracloud.org/coprs/spf13/Hugo/ (updated to Hugo v0.16)
-* https://copr.fedorainfracloud.org/coprs/daftaupe/hugo/ (updated to Hugo v0.19)
 
-See also [this discussion](https://discuss.gohugo.io/t/solved-fedora-copr-repository-out-of-service/2491).
+See also [this discussion](https://discourse.gohugo.io/t/solved-fedora-copr-repository-out-of-service/2491).
 
-### Snap package for Hugo
+## Alternate Installation Methods
+
+### Snap Package
 
 In any of the [Linux distributions that support snaps](http://snapcraft.io/docs/core/install):
 
     snap install hugo
 
 > Note: Hugo-as-a-snap can write only inside the user’s `$HOME` directory—and gvfs-mounted directories owned by the user—because of Snaps’ confinement and security model.
-> More information is also available [in this related GitHub issue](https://github.com/spf13/hugo/issues/3143).
+> More information is also available [in this related GitHub issue](https://github.com/gohugoio/hugo/issues/3143).
+
+### Docker Image (unofficial)
+
+[Docker Hugo](https://hub.docker.com/r/felicianotech/docker-hugo/) is a Docker image that can be used for local development but more importantly, can be easily used for continuous integration builds of your Hugo site on [CircleCI](https://circleci.com/) or [Travis CI](https://travis-ci.org/). Source available on [GitHub](https://github.com/felicianotech/docker-hugo).
 
 ## Installing from source
 
@@ -116,10 +125,10 @@ You **must use govendor** to fetch Hugo's dependencies.
 ### Fetch from GitHub
 
     go get github.com/kardianos/govendor
-    govendor get github.com/spf13/hugo
+    govendor get github.com/gohugoio/hugo
 
 `govendor get` will fetch Hugo and all its dependent libraries to
-`$HOME/go/src/github.com/spf13/hugo`, and compile everything into a final `hugo`
+`$HOME/go/src/github.com/gohugoio/hugo`, and compile everything into a final `hugo`
 (or `hugo.exe`) executable, which you will find sitting inside
 `$HOME/go/bin/`, all ready to go!
 

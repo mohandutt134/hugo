@@ -373,6 +373,15 @@ e.g.
        {{ .Content }}
     {{ end }}
 
+
+### uniq
+
+Takes in a slice or array and returns a slice with subsequent duplicate elements removed.
+
+    {{ uniq (slice 1 2 3 2) }}
+    {{ slice 1 2 3 2 | uniq }}
+    <!-- both return [1 2 3] -->
+
 ## Files
 
 ### readDir
@@ -1055,10 +1064,10 @@ to convert them. Now we use an integer instead of a string:
 **Tip:** Using base64 to decode and encode becomes really powerful if we have to handle
 responses of APIs.
 
-    {{ $resp := getJSON "https://api.github.com/repos/spf13/hugo/readme"  }}
+    {{ $resp := getJSON "https://api.github.com/repos/gohugoio/hugo/readme"  }}
     {{ $resp.content | base64Decode | markdownify }}
 
-The response of the GitHub API contains the base64-encoded version of the [README.md](https://github.com/spf13/hugo/blob/master/README.md) in the Hugo repository. Now we can decode it and parse the Markdown. The final output will look similar to the rendered version on GitHub.
+The response of the GitHub API contains the base64-encoded version of the [README.md](https://github.com/gohugoio/hugo/blob/master/README.md) in the Hugo repository. Now we can decode it and parse the Markdown. The final output will look similar to the rendered version on GitHub.
 
 ***
 

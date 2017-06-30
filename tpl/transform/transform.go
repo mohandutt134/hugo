@@ -18,9 +18,9 @@ import (
 	"html"
 	"html/template"
 
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
 	"github.com/spf13/cast"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
 )
 
 // New returns a new instance of the transform-namespaced template functions.

@@ -1,4 +1,4 @@
-// Copyright 2016 The Hugo Authors. All rights reserved.
+// Copyright 2017 The Hugo Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,25 +28,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spf13/hugo/config"
+	"github.com/gohugoio/hugo/config"
 
-	"github.com/spf13/hugo/media"
+	"github.com/gohugoio/hugo/media"
 
 	"github.com/bep/inflect"
 
 	"sync/atomic"
 
 	"github.com/fsnotify/fsnotify"
+	bp "github.com/gohugoio/hugo/bufferpool"
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/output"
+	"github.com/gohugoio/hugo/parser"
+	"github.com/gohugoio/hugo/source"
+	"github.com/gohugoio/hugo/tpl"
+	"github.com/gohugoio/hugo/transform"
 	"github.com/spf13/afero"
 	"github.com/spf13/cast"
-	bp "github.com/spf13/hugo/bufferpool"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/output"
-	"github.com/spf13/hugo/parser"
-	"github.com/spf13/hugo/source"
-	"github.com/spf13/hugo/tpl"
-	"github.com/spf13/hugo/transform"
 	"github.com/spf13/nitro"
 	"github.com/spf13/viper"
 )
@@ -87,7 +87,7 @@ type Site struct {
 	// to get the singular form from that value.
 	taxonomiesPluralSingular map[string]string
 
-	// This is temporary, see https://github.com/spf13/hugo/issues/2835
+	// This is temporary, see https://github.com/gohugoio/hugo/issues/2835
 	// Maps 	"actors-gerard-depardieu" to "Gérard Depardieu" when preserveTaxonomyNames
 	// is set.
 	taxonomiesOrigKey map[string]string
@@ -323,7 +323,6 @@ type SiteInfo struct {
 	Taxonomies TaxonomyList
 	Authors    AuthorList
 	Social     SiteSocial
-	Sections   Taxonomy
 	*PageCollections
 	Files                 *[]*source.File
 	Menus                 *Menus
@@ -668,11 +667,11 @@ func (s *Site) reProcess(events []fsnotify.Event) (whatChanged, error) {
 		seen[ev] = true
 
 		if s.isContentDirEvent(ev) {
-			logger.Println("Source changed", ev.Name)
+			logger.Println("Source changed", ev)
 			sourceChanged = append(sourceChanged, ev)
 		}
 		if s.isLayoutDirEvent(ev) {
-			logger.Println("Template changed", ev.Name)
+			logger.Println("Template changed", ev)
 			tmplChanged = append(tmplChanged, ev)
 
 			if strings.Contains(ev.Name, "shortcodes") {
@@ -683,11 +682,11 @@ func (s *Site) reProcess(events []fsnotify.Event) (whatChanged, error) {
 			}
 		}
 		if s.isDataDirEvent(ev) {
-			logger.Println("Data changed", ev.Name)
+			logger.Println("Data changed", ev)
 			dataChanged = append(dataChanged, ev)
 		}
 		if s.isI18nEvent(ev) {
-			logger.Println("i18n changed", ev.Name)
+			logger.Println("i18n changed", ev)
 			i18nChanged = append(dataChanged, ev)
 		}
 	}
@@ -762,7 +761,7 @@ func (s *Site) reProcess(events []fsnotify.Event) (whatChanged, error) {
 		if ev.Op&fsnotify.Remove == fsnotify.Remove {
 			//remove the file & a create will follow
 			path, _ := helpers.GetRelativePath(ev.Name, s.getContentDir(ev.Name))
-			s.removePageByPath(path)
+			s.removePageByPathPrefix(path)
 			continue
 		}
 
@@ -988,14 +987,19 @@ func (s *Site) render(outFormatIdx int) (err error) {
 		}
 		s.timerStep("prepare pages")
 
-		// Aliases must be rendered before pages.
-		// Some sites, Hugo docs included, have faulty alias definitions that point
-		// to itself or another real page. These will be overwritten in the next
-		// step.
-		if err = s.renderAliases(); err != nil {
-			return
+		// Note that even if disableAliases is set, the aliases themselves are
+		// preserved on page. The motivation with this is to be able to generate
+		// 301 redirects in a .htacess file and similar using a custom output format.
+		if !s.Cfg.GetBool("disableAliases") {
+			// Aliases must be rendered before pages.
+			// Some sites, Hugo docs included, have faulty alias definitions that point
+			// to itself or another real page. These will be overwritten in the next
+			// step.
+			if err = s.renderAliases(); err != nil {
+				return
+			}
+			s.timerStep("render and write aliases")
 		}
-		s.timerStep("render and write aliases")
 
 	}
 
@@ -1512,8 +1516,6 @@ func (s *Site) buildSiteMeta() (err error) {
 		p.setValuesForKind(s)
 	}
 
-	s.assembleSections()
-
 	return
 }
 
@@ -1590,6 +1592,9 @@ func (s *Site) assembleMenus() {
 	if sectionPagesMenu != "" {
 		for _, p := range pages {
 			if p.Kind == KindSection {
+				// From Hugo 0.22 we have nested sections, but until we get a
+				// feel of how that would work in this setting, let us keep
+				// this menu for the top level only.
 				id := p.Section()
 				if _, ok := flat[twoD{sectionPagesMenu, id}]; ok {
 					continue
@@ -1724,69 +1729,8 @@ func (s *Site) resetBuildState() {
 
 	for _, p := range s.rawAllPages {
 		p.scratch = newScratch()
-	}
-}
-
-func (s *Site) assembleSections() {
-	s.Sections = make(Taxonomy)
-	s.Info.Sections = s.Sections
-
-	regularPages := s.findPagesByKind(KindPage)
-	sectionPages := s.findPagesByKind(KindSection)
-
-	for i, p := range regularPages {
-		section := s.getTaxonomyKey(p.Section())
-		s.Sections.add(section, WeightedPage{regularPages[i].Weight, regularPages[i]})
-	}
-
-	// Add sections without regular pages, but with a content page
-	for _, sectionPage := range sectionPages {
-		if _, ok := s.Sections[sectionPage.sections[0]]; !ok {
-			s.Sections[sectionPage.sections[0]] = WeightedPages{}
-		}
-	}
-
-	for k := range s.Sections {
-		s.Sections[k].Sort()
-
-		for i, wp := range s.Sections[k] {
-			if i > 0 {
-				wp.Page.NextInSection = s.Sections[k][i-1].Page
-			}
-			if i < len(s.Sections[k])-1 {
-				wp.Page.PrevInSection = s.Sections[k][i+1].Page
-			}
-		}
-
-	}
-
-	var (
-		sectionsParamId      = "mainSections"
-		sectionsParamIdLower = strings.ToLower(sectionsParamId)
-		mainSections         interface{}
-		found                bool
-	)
-
-	if mainSections, found = s.Info.Params[sectionsParamIdLower]; !found {
-		// Pick the section with most regular pages
-		var (
-			chosenSection string
-			pageCount     int
-		)
-
-		for sect, pages := range s.Sections {
-			if pages.Count() >= pageCount {
-				chosenSection = sect
-				pageCount = pages.Count()
-			}
-		}
-		mainSections = []string{chosenSection}
-
-		// Try to make this as backwards compatible as possible.
-		s.Info.Params[sectionsParamId] = mainSections
-		s.Info.Params[sectionsParamIdLower] = mainSections
-	} else {
-		s.Info.Params[sectionsParamId] = mainSections
+		p.subSections = Pages{}
+		p.parent = nil
 	}
 }
 
@@ -1891,10 +1835,11 @@ func (s *Site) Stats() {
 
 }
 
-// GetPage looks up a index page of a given type in the path given.
+// GetPage looks up a page of a given type in the path given.
 //    {{ with .Site.GetPage "section" "blog" }}{{ .Title }}{{ end }}
 //
-// This will return nil when no page could be found.
+// This will return nil when no page could be found, and will return the
+// first page found if the key is ambigous.
 func (s *SiteInfo) GetPage(typ string, path ...string) (*Page, error) {
 	return s.getPage(typ, path...), nil
 }
@@ -2163,15 +2108,10 @@ func (s *Site) newTaxonomyPage(plural, key string) *Page {
 	return p
 }
 
-func (s *Site) newSectionPage(name string, section WeightedPages) *Page {
+func (s *Site) newSectionPage(name string) *Page {
 	p := s.newNodePage(KindSection, name)
 
-	sectionName := name
-	if !s.Info.preserveTaxonomyNames && len(section) > 0 {
-		sectionName = section[0].Page.Section()
-	}
-
-	sectionName = helpers.FirstUpper(sectionName)
+	sectionName := helpers.FirstUpper(name)
 	if s.Cfg.GetBool("pluralizeListTitles") {
 		p.Title = inflect.Pluralize(sectionName)
 	} else {

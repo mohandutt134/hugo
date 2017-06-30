@@ -16,8 +16,8 @@ package hugolib
 import (
 	"fmt"
 
+	"github.com/gohugoio/hugo/helpers"
 	"github.com/spf13/afero"
-	"github.com/spf13/hugo/helpers"
 	"github.com/spf13/viper"
 )
 
@@ -59,6 +59,7 @@ func LoadConfig(fs afero.Fs, relativeSourcePath, configFilename string) (*viper.
 	}
 
 	if v.IsSet("disableSitemap") {
+		// NOTE: Do not remove this until Hugo 0.24, ERROR in 0.23.
 		helpers.Deprecated("site config", "disableSitemap", "Use disableKinds= [\"sitemap\"]", false)
 	}
 
@@ -130,4 +131,5 @@ func loadDefaultSettingsFor(v *viper.Viper) {
 	v.SetDefault("enableMissingTranslationPlaceholders", false)
 	v.SetDefault("enableGitInfo", false)
 	v.SetDefault("ignoreFiles", make([]string, 0))
+	v.SetDefault("disableAliases", false)
 }

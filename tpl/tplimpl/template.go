@@ -24,15 +24,15 @@ import (
 
 	"os"
 
-	"github.com/spf13/hugo/output"
+	"github.com/gohugoio/hugo/output"
 
 	"path/filepath"
 	"sync"
 
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/tpl"
 	"github.com/spf13/afero"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/tpl"
 )
 
 const (
@@ -139,7 +139,7 @@ func (t *templateHandler) clone(d *deps.Deps) *templateHandler {
 		vc := template.Must(v.Clone())
 		// The extra lookup is a workaround, see
 		// * https://github.com/golang/go/issues/16101
-		// * https://github.com/spf13/hugo/issues/2549
+		// * https://github.com/gohugoio/hugo/issues/2549
 		vc = vc.Lookup(vc.Name())
 		vc.Funcs(c.html.funcster.funcMap)
 		c.html.overlays[k] = vc
@@ -555,7 +555,7 @@ func (t *htmlTemplates) handleMaster(name, overlayFilename, masterFilename strin
 
 	// The extra lookup is a workaround, see
 	// * https://github.com/golang/go/issues/16101
-	// * https://github.com/spf13/hugo/issues/2549
+	// * https://github.com/gohugoio/hugo/issues/2549
 	overlayTpl = overlayTpl.Lookup(overlayTpl.Name())
 	if err := applyTemplateTransformersToHMLTTemplate(overlayTpl); err != nil {
 		return err

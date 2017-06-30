@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gohugoio/hugo/deps"
+	"github.com/gohugoio/hugo/helpers"
 	"github.com/spf13/cast"
-	"github.com/spf13/hugo/deps"
-	"github.com/spf13/hugo/helpers"
 )
 
 // New returns a new instance of the collections-namespaced template functions.
@@ -258,6 +258,13 @@ func (ns *Namespace) In(l interface{}, v interface{}) bool {
 				switch vv.Kind() {
 				case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 					if vv.Int() == lvv.Int() {
+						return true
+					}
+				}
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				switch vv.Kind() {
+				case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+					if vv.Uint() == lvv.Uint() {
 						return true
 					}
 				}
@@ -545,7 +552,7 @@ func (ns *Namespace) Slice(args ...interface{}) []interface{} {
 // If either l1 or l2 is nil then the non-nil list will be returned.
 func (ns *Namespace) Union(l1, l2 interface{}) (interface{}, error) {
 	if l1 == nil && l2 == nil {
-		return nil, errors.New("both arrays/slices have to be of the same type")
+		return []interface{}{}, nil
 	} else if l1 == nil && l2 != nil {
 		return l2, nil
 	} else if l1 != nil && l2 == nil {
@@ -561,21 +568,95 @@ func (ns *Namespace) Union(l1, l2 interface{}) (interface{}, error) {
 		case reflect.Array, reflect.Slice:
 			r := reflect.MakeSlice(l1v.Type(), 0, 0)
 
-			if l1v.Type() != l2v.Type() {
+			if l1v.Type() != l2v.Type() &&
+				l1v.Type().Elem().Kind() != reflect.Interface &&
+				l2v.Type().Elem().Kind() != reflect.Interface {
 				return r.Interface(), nil
 			}
 
+			var l1vv reflect.Value
 			for i := 0; i < l1v.Len(); i++ {
-				elem := l1v.Index(i)
-				if !ns.In(r.Interface(), elem.Interface()) {
-					r = reflect.Append(r, elem)
+				l1vv = l1v.Index(i)
+				if !ns.In(r.Interface(), l1vv.Interface()) {
+					r = reflect.Append(r, l1vv)
 				}
 			}
 
 			for j := 0; j < l2v.Len(); j++ {
-				elem := l2v.Index(j)
-				if !ns.In(r.Interface(), elem.Interface()) {
-					r = reflect.Append(r, elem)
+				l2vv := l2v.Index(j)
+
+				switch l1vv.Kind() {
+				case reflect.String:
+					l2t, err := toString(l2vv)
+					if err == nil && !ns.In(r.Interface(), l2t) {
+						r = reflect.Append(r, reflect.ValueOf(l2t))
+					}
+				case reflect.Int:
+					l2t, err := toInt(l2vv)
+					if err == nil && !ns.In(r.Interface(), l2t) {
+						r = reflect.Append(r, reflect.ValueOf(int(l2t)))
+					}
+				case reflect.Int8:
+					l2t, err := toInt(l2vv)
+					if err == nil && !ns.In(r.Interface(), l2t) {
+						r = reflect.Append(r, reflect.ValueOf(int8(l2t)))
+					}
+				case reflect.Int16:
+					l2t, err := toInt(l2vv)
+					if err == nil && !ns.In(r.Interface(), l2t) {
+						r = reflect.Append(r, reflect.ValueOf(int16(l2t)))
+					}
+				case reflect.Int32:
+					l2t, err := toInt(l2vv)
+					if err == nil && !ns.In(r.Interface(), l2t) {
+						r = reflect.Append(r, reflect.ValueOf(int32(l2t)))
+					}
+				case reflect.Int64:
+					l2t, err := toInt(l2vv)
+					if err == nil && !ns.In(r.Interface(), l2t) {
+						r = reflect.Append(r, reflect.ValueOf(l2t))
+					}
+				case reflect.Float32:
+					l2t, err := toFloat(l2vv)
+					if err == nil && !ns.In(r.Interface(), float32(l2t)) {
+						r = reflect.Append(r, reflect.ValueOf(float32(l2t)))
+					}
+				case reflect.Float64:
+					l2t, err := toFloat(l2vv)
+					if err == nil && !ns.In(r.Interface(), l2t) {
+						r = reflect.Append(r, reflect.ValueOf(l2t))
+					}
+				case reflect.Interface:
+					switch l1vv.Interface().(type) {
+					case string:
+						switch l2vvActual := l2vv.Interface().(type) {
+						case string:
+							if !ns.In(r.Interface(), l2vvActual) {
+								r = reflect.Append(r, l2vv)
+							}
+						}
+					case int, int8, int16, int32, int64:
+						switch l2vvActual := l2vv.Interface().(type) {
+						case int, int8, int16, int32, int64:
+							if !ns.In(r.Interface(), l2vvActual) {
+								r = reflect.Append(r, l2vv)
+							}
+						}
+					case uint, uint8, uint16, uint32, uint64:
+						switch l2vvActual := l2vv.Interface().(type) {
+						case uint, uint8, uint16, uint32, uint64:
+							if !ns.In(r.Interface(), l2vvActual) {
+								r = reflect.Append(r, l2vv)
+							}
+						}
+					case float32, float64:
+						switch l2vvActual := l2vv.Interface().(type) {
+						case float32, float64:
+							if !ns.In(r.Interface(), l2vvActual) {
+								r = reflect.Append(r, l2vv)
+							}
+						}
+					}
 				}
 			}
 
@@ -586,4 +667,42 @@ func (ns *Namespace) Union(l1, l2 interface{}) (interface{}, error) {
 	default:
 		return nil, errors.New("can't iterate over " + reflect.ValueOf(l1).Type().String())
 	}
+}
+
+// Uniq takes in a slice or array and returns a slice with subsequent
+// duplicate elements removed.
+func (ns *Namespace) Uniq(l interface{}) (interface{}, error) {
+	if l == nil {
+		return make([]interface{}, 0), nil
+	}
+
+	lv := reflect.ValueOf(l)
+	lv, isNil := indirect(lv)
+	if isNil {
+		return nil, errors.New("invalid nil argument to Uniq")
+	}
+
+	var ret reflect.Value
+
+	switch lv.Kind() {
+	case reflect.Slice:
+		ret = reflect.MakeSlice(lv.Type(), 0, 0)
+	case reflect.Array:
+		ret = reflect.MakeSlice(reflect.SliceOf(lv.Type().Elem()), 0, 0)
+	default:
+		return nil, errors.New("Can't use Uniq on " + reflect.ValueOf(lv).Type().String())
+	}
+
+	for i := 0; i != lv.Len(); i++ {
+		lvv := lv.Index(i)
+		lvv, isNil := indirect(lvv)
+		if isNil {
+			continue
+		}
+
+		if !ns.In(ret.Interface(), lvv.Interface()) {
+			ret = reflect.Append(ret, lvv)
+		}
+	}
+	return ret.Interface(), nil
 }

@@ -26,11 +26,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/chaseadamsio/goorgeous"
+	bp "github.com/gohugoio/hugo/bufferpool"
+	"github.com/gohugoio/hugo/config"
 	"github.com/miekg/mmark"
 	"github.com/mitchellh/mapstructure"
 	"github.com/russross/blackfriday"
-	bp "github.com/spf13/hugo/bufferpool"
-	"github.com/spf13/hugo/config"
 	jww "github.com/spf13/jwalterweatherman"
 
 	"strings"
@@ -137,6 +137,7 @@ var blackfridayExtensionMap = map[string]int{
 	"autoHeaderIds":          blackfriday.EXTENSION_AUTO_HEADER_IDS,
 	"backslashLineBreak":     blackfriday.EXTENSION_BACKSLASH_LINE_BREAK,
 	"definitionLists":        blackfriday.EXTENSION_DEFINITION_LISTS,
+	"joinLines":              blackfriday.EXTENSION_JOIN_LINES,
 }
 
 var stripHTMLReplacer = strings.NewReplacer("\n", " ", "</p>", "\n", "<br>", "\n", "<br />", "\n")
@@ -637,7 +638,7 @@ func getRstContent(ctx *RenderingContext) []byte {
 	}
 
 	jww.INFO.Println("Rendering", ctx.DocumentName, "with", path, "...")
-	cmd := exec.Command(python, path, "--leave-comments")
+	cmd := exec.Command(python, path, "--leave-comments", "--initial-header-level=2")
 	cmd.Stdin = bytes.NewReader(cleanContent)
 	var out, cmderr bytes.Buffer
 	cmd.Stdout = &out

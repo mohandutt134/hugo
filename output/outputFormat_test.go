@@ -17,7 +17,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/spf13/hugo/media"
+	"github.com/gohugoio/hugo/media"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,6 +89,47 @@ func TestGetFormatByExt(t *testing.T) {
 	// ambiguous
 	_, found = formats2.GetBySuffix("html")
 	require.False(t, found)
+}
+
+func TestGetFormatByFilename(t *testing.T) {
+	noExtNoDelimMediaType := media.TextType
+	noExtNoDelimMediaType.Suffix = ""
+	noExtNoDelimMediaType.Delimiter = ""
+
+	noExtMediaType := media.TextType
+	noExtMediaType.Suffix = ""
+
+	var (
+		noExtDelimFormat = Format{
+			Name:      "NEM",
+			MediaType: noExtNoDelimMediaType,
+			BaseName:  "_redirects",
+		}
+		noExt = Format{
+			Name:      "NEX",
+			MediaType: noExtMediaType,
+			BaseName:  "next",
+		}
+	)
+
+	formats := Formats{AMPFormat, HTMLFormat, noExtDelimFormat, noExt, CalendarFormat}
+	f, found := formats.FromFilename("my.amp.html")
+	require.True(t, found)
+	require.Equal(t, AMPFormat, f)
+	f, found = formats.FromFilename("my.ics")
+	require.True(t, found)
+	f, found = formats.FromFilename("my.html")
+	require.True(t, found)
+	require.Equal(t, HTMLFormat, f)
+	f, found = formats.FromFilename("my.nem")
+	require.True(t, found)
+	require.Equal(t, noExtDelimFormat, f)
+	f, found = formats.FromFilename("my.nex")
+	require.True(t, found)
+	require.Equal(t, noExt, f)
+	f, found = formats.FromFilename("my.css")
+	require.False(t, found)
+
 }
 
 func TestDecodeFormats(t *testing.T) {

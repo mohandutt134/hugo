@@ -19,68 +19,61 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
-	"github.com/spf13/afero"
-	"github.com/spf13/cast"
-	"github.com/spf13/hugo/helpers"
-	"github.com/spf13/hugo/hugolib"
-	"github.com/spf13/hugo/parser"
+	"github.com/gohugoio/hugo/helpers"
+	"github.com/gohugoio/hugo/hugolib"
 	jww "github.com/spf13/jwalterweatherman"
 )
 
 // NewContent creates a new content file in the content directory based upon the
 // given kind, which is used to lookup an archetype.
-func NewContent(s *hugolib.Site, kind, name string) (err error) {
-	jww.INFO.Println("attempting to create ", name, "of", kind)
+func NewContent(
+	ps *helpers.PathSpec,
+	siteFactory func(filename string, siteUsed bool) (*hugolib.Site, error), kind, targetPath string) error {
+	ext := helpers.Ext(targetPath)
 
-	location := FindArchetype(s, kind)
+	jww.INFO.Printf("attempting to create %q of %q of ext %q", targetPath, kind, ext)
 
-	var by []byte
+	archetypeFilename := findArchetype(ps, kind, ext)
 
-	if location != "" {
-		by, err = afero.ReadFile(s.Fs.Source, location)
+	// Building the sites can be expensive, so only do it if really needed.
+	siteUsed := false
+
+	if archetypeFilename != "" {
+		f, err := ps.Fs.Source.Open(archetypeFilename)
 		if err != nil {
-			jww.ERROR.Println(err)
+			return err
+		}
+		defer f.Close()
+
+		if helpers.ReaderContains(f, []byte(".Site")) {
+			siteUsed = true
 		}
 	}
-	if location == "" || err != nil {
-		by = []byte("+++\ndraft = true \n+++\n")
-	}
 
-	psr, err := parser.ReadFrom(bytes.NewReader(by))
+	s, err := siteFactory(targetPath, siteUsed)
 	if err != nil {
 		return err
 	}
 
-	metadata, err := createMetadata(psr, name)
-	if err != nil {
-		jww.ERROR.Printf("Error processing archetype file %s: %s\n", location, err)
-		return err
-	}
+	var content []byte
 
-	page, err := s.NewPage(name)
+	content, err = executeArcheTypeAsTemplate(s, kind, targetPath, archetypeFilename)
 	if err != nil {
 		return err
 	}
 
-	if err = page.SetSourceMetaData(metadata, parser.FormatToLeadRune(s.Cfg.GetString("metaDataFormat"))); err != nil {
-		return
+	contentPath := s.PathSpec.AbsPathify(filepath.Join(s.Cfg.GetString("contentDir"), targetPath))
+
+	if err := helpers.SafeWriteToDisk(contentPath, bytes.NewReader(content), s.Fs.Source); err != nil {
+		return err
 	}
 
-	page.SetSourceContent(psr.Content())
-
-	contentPath := s.PathSpec.AbsPathify(filepath.Join(s.Cfg.GetString("contentDir"), name))
-
-	if err = page.SafeSaveSourceAs(contentPath); err != nil {
-		return
-	}
 	jww.FEEDBACK.Println(contentPath, "created")
 
 	editor := s.Cfg.GetString("newContentEditor")
 	if editor != "" {
-		jww.FEEDBACK.Printf("Editing %s with %q ...\n", name, editor)
+		jww.FEEDBACK.Printf("Editing %s with %q ...\n", targetPath, editor)
 
 		cmd := exec.Command(editor, contentPath)
 		cmd.Stdin = os.Stdin
@@ -93,65 +86,16 @@ func NewContent(s *hugolib.Site, kind, name string) (err error) {
 	return nil
 }
 
-// createMetadata generates Metadata for a new page based upon the metadata
-// found in an archetype.
-func createMetadata(archetype parser.Page, name string) (map[string]interface{}, error) {
-	archMetadata, err := archetype.Metadata()
-	if err != nil {
-		return nil, err
-	}
-
-	metadata, err := cast.ToStringMapE(archMetadata)
-	if err != nil {
-		return nil, err
-	}
-
-	var date time.Time
-
-	for k, v := range metadata {
-		if v == "" {
-			continue
-		}
-		lk := strings.ToLower(k)
-		switch lk {
-		case "date":
-			date, err = cast.ToTimeE(v)
-			if err != nil {
-				return nil, err
-			}
-		case "title":
-			// Use the archetype title as is
-			metadata[lk] = v
-		}
-	}
-
-	if metadata == nil {
-		metadata = make(map[string]interface{})
-	}
-
-	if date.IsZero() {
-		date = time.Now()
-	}
-
-	if _, ok := metadata["title"]; !ok {
-		metadata["title"] = helpers.MakeTitle(helpers.Filename(name))
-	}
-
-	metadata["date"] = date.Format(time.RFC3339)
-
-	return metadata, nil
-}
-
 // FindArchetype takes a given kind/archetype of content and returns an output
 // path for that archetype.  If no archetype is found, an empty string is
 // returned.
-func FindArchetype(s *hugolib.Site, kind string) (outpath string) {
-	search := []string{s.PathSpec.AbsPathify(s.Cfg.GetString("archetypeDir"))}
+func findArchetype(ps *helpers.PathSpec, kind, ext string) (outpath string) {
+	search := []string{ps.AbsPathify(ps.Cfg.GetString("archetypeDir"))}
 
-	if s.Cfg.GetString("theme") != "" {
-		themeDir := filepath.Join(s.PathSpec.AbsPathify(s.Cfg.GetString("themesDir")+"/"+s.Cfg.GetString("theme")), "/archetypes/")
-		if _, err := s.Fs.Source.Stat(themeDir); os.IsNotExist(err) {
-			jww.ERROR.Printf("Unable to find archetypes directory for theme %q at %q", s.Cfg.GetString("theme"), themeDir)
+	if ps.Cfg.GetString("theme") != "" {
+		themeDir := filepath.Join(ps.AbsPathify(ps.Cfg.GetString("themesDir")+"/"+ps.Cfg.GetString("theme")), "/archetypes/")
+		if _, err := ps.Fs.Source.Stat(themeDir); os.IsNotExist(err) {
+			jww.ERROR.Printf("Unable to find archetypes directory for theme %q at %q", ps.Cfg.GetString("theme"), themeDir)
 		} else {
 			search = append(search, themeDir)
 		}
@@ -160,18 +104,21 @@ func FindArchetype(s *hugolib.Site, kind string) (outpath string) {
 	for _, x := range search {
 		// If the new content isn't in a subdirectory, kind == "".
 		// Therefore it should be excluded otherwise `is a directory`
-		// error will occur. github.com/spf13/hugo/issues/411
-		var pathsToCheck []string
+		// error will occur. github.com/gohugoio/hugo/issues/411
+		var pathsToCheck = []string{"default"}
 
-		if kind == "" {
-			pathsToCheck = []string{"default.md", "default"}
-		} else {
-			pathsToCheck = []string{kind + ".md", kind, "default.md", "default"}
+		if ext != "" {
+			if kind != "" {
+				pathsToCheck = append([]string{kind + ext, "default" + ext}, pathsToCheck...)
+			} else {
+				pathsToCheck = append([]string{"default" + ext}, pathsToCheck...)
+			}
 		}
+
 		for _, p := range pathsToCheck {
 			curpath := filepath.Join(x, p)
 			jww.DEBUG.Println("checking", curpath, "for archetypes")
-			if exists, _ := helpers.Exists(curpath, s.Fs.Source); exists {
+			if exists, _ := helpers.Exists(curpath, ps.Fs.Source); exists {
 				jww.INFO.Println("curpath: " + curpath)
 				return curpath
 			}

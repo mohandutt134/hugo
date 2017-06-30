@@ -17,7 +17,7 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/spf13/hugo/cache"
+	"github.com/gohugoio/hugo/cache"
 )
 
 // PageCollections contains the page collections for a site.
@@ -101,7 +101,6 @@ func (c *PageCollections) getPage(typ string, sections ...string) *Page {
 		key = path.Join(sections...)
 	}
 
-	// TODO(bep) section error
 	p, _ := c.pageCache.Get(typ, key)
 	if p == nil {
 		return nil
@@ -138,14 +137,26 @@ func (c *PageCollections) addPage(page *Page) {
 	c.rawAllPages = append(c.rawAllPages, page)
 }
 
+// When we get a REMOVE event we're not always getting all the individual files,
+// so we need to remove all below a given path.
+func (c *PageCollections) removePageByPathPrefix(path string) {
+	for {
+		i := c.rawAllPages.findFirstPagePosByFilePathPrefix(path)
+		if i == -1 {
+			break
+		}
+		c.rawAllPages = append(c.rawAllPages[:i], c.rawAllPages[i+1:]...)
+	}
+}
+
 func (c *PageCollections) removePageByPath(path string) {
-	if i := c.rawAllPages.FindPagePosByFilePath(path); i >= 0 {
+	if i := c.rawAllPages.findPagePosByFilePath(path); i >= 0 {
 		c.rawAllPages = append(c.rawAllPages[:i], c.rawAllPages[i+1:]...)
 	}
 }
 
 func (c *PageCollections) removePage(page *Page) {
-	if i := c.rawAllPages.FindPagePos(page); i >= 0 {
+	if i := c.rawAllPages.findPagePos(page); i >= 0 {
 		c.rawAllPages = append(c.rawAllPages[:i], c.rawAllPages[i+1:]...)
 	}
 }
